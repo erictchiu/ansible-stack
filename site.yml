@@ -1,0 +1,92 @@
+- hosts: localhost 
+  sudo: yes
+  vars:
+    proxy_env:
+      http_proxy: 
+      https_proxy: 
+    stackrc:
+      OS_PASSWORD: 
+      OS_AUTH_URL: 
+      OS_USERNAME: admin
+      OS_TENANT_NAME: admin
+    users:
+      test1:
+        name: Tester User 
+        password: Pass!@#$     
+        tenant: test1_tenant 
+        role: admin
+        email: test@test.com
+
+#  vars_files:
+#    - "defaults/main.yml"
+  tasks:
+    - name: check keystone client
+      apt: name=python-keystoneclient state=present
+    - name: create tenant
+      keystone_user: 
+        endpoint={{stackrc.OS_AUTH_URL}}
+        login_user={{stackrc.OS_USERNAME}} 
+        login_password={{stackrc.OS_PASSWORD}}
+        login_tenant_name={{stackrc.OS_TENANT_NAME}}
+        tenant=mydemo
+        tenant_description="Test Tenant" 
+        state=present
+      ignore_errors: yes
+      register: tenant_output
+    - name: create user
+      keystone_user: 
+        endpoint={{stackrc.OS_AUTH_URL}}
+        login_user={{stackrc.OS_USERNAME}} 
+        login_password={{stackrc.OS_PASSWORD}}
+        login_tenant_name={{stackrc.OS_TENANT_NAME}}
+        user={{item.key}}
+        password={{item.value.password}}
+        tenant={{item.value.tenant}}
+        email={{item.value.email}}
+        state=present
+      with_dict: users
+      ignore_errors: yes
+      register: user_output
+    - name: create neutron network
+      neutron_network: 
+        auth_url={{stackrc.OS_AUTH_URL}}
+        login_username={{stackrc.OS_USERNAME}} 
+        login_password={{stackrc.OS_PASSWORD}}
+        login_tenant_name={{stackrc.OS_TENANT_NAME}}
+        name=testnetwork 
+        tenant_name=mydemo
+        provider_network_type=local
+        state=present
+      ignore_errors: yes
+      register: network_output
+    - name: create neutron router
+      neutron_router: 
+        auth_url={{stackrc.OS_AUTH_URL}}
+        login_username={{stackrc.OS_USERNAME}} 
+        login_password={{stackrc.OS_PASSWORD}}
+        login_tenant_name={{stackrc.OS_TENANT_NAME}}
+        name=testrouter 
+        tenant_name=mydemo
+        state=present
+      ignore_errors: yes
+      register: router_output
+    - name: create security group
+      neutron_sec_group: 
+        auth_url={{stackrc.OS_AUTH_URL}}
+        login_username={{stackrc.OS_USERNAME}} 
+        login_password={{stackrc.OS_PASSWORD}}
+        login_tenant_name={{stackrc.OS_TENANT_NAME}}
+        name=testrule
+        tenant_name=mydemo
+        state=present
+      ignore_errors: yes
+      register: sec_group_output
+
+#    - name: Print users
+    - debug: var=tenant_output
+    - debug: var=tenant_output.id
+    - debug: var=user_output
+    - debug: var=user_output["results"][0]["id"]
+    - debug: var=network_output
+    - debug: var=router_output
+

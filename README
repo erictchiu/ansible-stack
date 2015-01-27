@@ -1,0 +1,5 @@
+
+This playbook requires Ansible Openstack modules https://github.com/openstack-ansible/openstack-ansible-modules
+Clone this repo to your local directory, and add this line to your .bashrc or environment settings:
+export ANSIBLE_LIBRARY=<path_to_openstack-ansible-modules>
+

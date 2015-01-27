@@ -1,0 +1,56 @@
+#!/bin/bash
+# comma demlimited list: username, tenant name, password, email
+userlist="test11,test11_tenant,password,test@test.com
+test12,test12_tenant,password,test@test.com
+test13,test13_tenant,password,test@test.com"
+
+
+# DO NOT EDIT AFTER THIS LINE
+
+export OS_PASSWORD=
+export OS_AUTH_URL=
+export OS_USERNAME=admin
+export OS_TENANT_NAME=admin
+
+if [ "$1" = "-add" ]; then
+for b in $userlist; do
+ keystone tenant-create  --name=`echo $b|awk -F"," '{print $2}'`
+ export TENANT_ID="$( keystone tenant-get `echo $b|awk -F"," '{print $2}'`| grep id | awk '{print $4}' )"
+ keystone user-create --name `echo $b|awk -F"," '{print $1}'` --tenant `echo $b|awk -F"," '{print $2}'` --pass `echo $b|awk -F"," '{print $3}'` --email `echo $b|awk -F"," '{print $4}'` --enabled true
+ export USER_ID="$( keystone user-get `echo $b|awk -F"," '{print $1}'`| grep id | awk '{print $4}' )"
+ neutron security-group-create --tenant-id=$TENANT_ID test
+ neutron security-group-delete --tenant-id=$TENANT_ID test
+ export SEC_GROUP="$( neutron security-group-list --tenant-id=$TENANT_ID | grep default | awk '{print $2}' )"
+ sleep 10
+ # to generate network, router, subset, quota
+ neutron security-group-rule-create --tenant-id $TENANT_ID --direction ingress --protocol icmp $SEC_GROUP
+ neutron security-group-rule-create --tenant-id $TENANT_ID --direction ingress --protocol tcp --port_range_min 22 --port_range_max 22 $SEC_GROUP
+ neutron net-create --tenant-id $TENANT_ID `echo $b|awk -F"," '{print $1}'`_net1
+ neutron subnet-create --tenant-id $TENANT_ID `echo $b|awk -F"," '{print $1}'`_net1 10.0.0.0/24 --name `echo $b|awk -F"," '{print $1}'`_subnet1 --dns_nameservers list=true 168.87.243.156
+ sleep 10
+ neutron router-create --tenant-id $TENANT_ID `echo $b|awk -F"," '{print $1}'`_router1
+ neutron router-interface-add `echo $b|awk -F"," '{print $1}'`_router1 `echo $b|awk -F"," '{print $1}'`_subnet1
+ neutron router-gateway-set `echo $b|awk -F"," '{print $1}'`_router1 Ext-Net
+ neutron quota-update --network=5 --subnet=5 --port=70 --router=1 --floatingip=45 --security_group_rule=50 --security_group=10 --tenant-id $TENANT_ID
+
+ echo "DONE: tenant = $TENANT_ID , user = $USER_ID , security_group = $SEC_GROUP"
+done
+fi
+
+if [ "$1" = "-delete" ]; then
+for b in $userlist; do
+ export TENANT_ID="$( keystone tenant-get `echo $b|awk -F"," '{print $2}'`| grep id | awk '{print $4}' )"
+ export USER_ID="$( keystone user-get `echo $b|awk -F"," '{print $1}'`| grep id | awk '{print $4}' )"
+
+ neutron router-gateway-clear `echo $b|awk -F"," '{print $1}'`_router1
+ neutron router-interface-delete `echo $b|awk -F"," '{print $1}'`_router1 `echo $b|awk -F"," '{print $1}'`_subnet1
+ neutron router-delete `echo $b|awk -F"," '{print $1}'`_router1
+ neutron subnet-delete `echo $b|awk -F"," '{print $1}'`_subnet1
+ neutron net-delete `echo $b|awk -F"," '{print $1}'`_net1
+
+ keystone tenant-delete $TENANT_ID
+ keystone user-delete $USER_ID
+ echo "DONE: deleted tenant = $TENANT_ID , user = $USER_ID"
+done
+fi
+
