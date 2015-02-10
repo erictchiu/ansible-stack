@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# README
+# Script to download cloud images and upload into glance
+
+# comma demlimited list: image name,url,filename 
+a="Ubuntu_15.04,https://cloud-images.ubuntu.com/vivid/current/vivid-server-cloudimg-amd64-disk1.img,vivid-server-cloudimg-amd64-disk1.img
+Ubuntu_14.10,http://uec-images.ubuntu.com/utopic/current/utopic-server-cloudimg-amd64-disk1.img,utopic-server-cloudimg-amd64-disk1.img
+Ubuntu_14.04.1,http://uec-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img,trusty-server-cloudimg-amd64-disk1.img
+Ubuntu_13.04,http://uec-images.ubuntu.com/raring/current/raring-server-cloudimg-amd64-disk1.img,raring-server-cloudimg-amd64-disk1.img
+Ubuntu_12.04.5,http://uec-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64-disk1.img,precise-server-cloudimg-amd64-disk1.img
+Ubuntu_10.04,https://cloud-images.ubuntu.com/lucid/current/lucid-server-cloudimg-amd64-disk1.img,lucid-server-cloudimg-amd64-disk1.img
+Fedora_21,http://download.fedoraproject.org/pub/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.qcow2,Fedora-Cloud-Base-20141203-21.x86_64.qcow2
+Fedora_20,http://download.fedoraproject.org/pub/fedora/linux/updates/20/Images/x86_64/Fedora-x86_64-20-20140407-sda.qcow2,Fedora-x86_64-20-20140407-sda.qcow2
+Fedora_19,http://mirrors.kernel.org/fedora/updates/19/Images/x86_64/Fedora-x86_64-19-20140407-sda.qcow2,Fedora-x86_64-19-20140407-sda.qcow2
+Fedora_19_i386,http://cloud.fedoraproject.org/fedora-19.i386.qcow2,fedora-19.i386.qcow2
+Debian_7.7,http://archive.gplhost.com/openstack-images/debian-wheezy-7.7-amd64.qcow2,debian-wheezy-7.7-amd64.qcow2
+CentOS_7,http://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-20140929_01.qcow2,CentOS-7-x86_64-GenericCloud-20140929_01.qcow2
+OpenSUSE_13.1,http://download.opensuse.org/repositories/Cloud:/Images:/openSUSE_13.1/images/openSUSE-13.1-OS-guest.x86_64-0.0.4-Build1.16.qcow2,openSUSE-13.1-OS-guest.x86_64-0.0.4-Build1.16.qcow2
+OpenSUSE_13.2,http://download.opensuse.org/repositories/Cloud:/Images:/openSUSE_13.2/images/openSUSE-13.2-OpenStack-Guest.x86_64-0.0.7-Build1.10.qcow2,openSUSE-13.2-OpenStack-Guest.x86_64-0.0.7-Build1.10.qcow2
+Redhat_6.6,https://content-web.rhn.redhat.com/rhn/isos/rhel-guest-6.6/rhel-x86_64-server-rh-common-6/rhel-guest-image-6.6-20141222.0.x86_64.qcow2?__gda__=1422570081_0b12a2d2ef35e5daec4d0e67f0877428&ext=.qcow2,rhel-guest-image-6.6-20141222.0.x86_64.qcow2
+Redhat_7.0,https://access.cdn.redhat.com//content/origin/files/sha256/f2/f201717fce9da3081527b811cb2f9cc0e68081cf51b3de8d2c38d2e9195205c2/rhel-guest-image-7.0-20140930.0.x86_64.qcow2?_auth_=1422569983_aca5fc5ae974707410ec214e4a5d2d02,rhel-guest-image-7.0-20140930.0.x86_64.qcow2
+Windows_Server_2012_R2,,windows_server_2012_r2_standard_eval_kvm_20140607.qcow2"
+
+#non-working images
+#Fedora_20_i386,http://cloud.fedoraproject.org/fedora-20.i386.qcow2,fedora-20.i386.qcow2
+
+. set-overcloud
+
+# if arg1 is -d, then download all files
+if [ "$1" = "-download" ]; then 
+	mkdir /tmp/images
+	cd /tmp/images
+	for b in $a; do
+		# download all the images 
+    	wget `echo $b|awk -F"," '{print $2}'`
+	done
+fi
+
+# if arg1 is -s, then scp file from install node
+if [ "$1" = "-scp" ]; then
+    #mkdir /tmp/images
+    cd /tmp/images
+	scp sys-ops@xxx.x.x.x:/tmp/images/* .
+fi
+
+cd /tmp/images
+for b in $a; do
+	# glance CLI command to create images 
+	glance image-create \
+        --name `echo $b|awk -F"," '{print $1}'` \
+        --container-format bare \
+        --disk-format qcow2 \
+        --is-public true \
+        --file `echo $b|awk -F"," '{print $3}'`;
+done
+
+glance image-list
+
+# clean up
+#m -r /tmp/images
+
